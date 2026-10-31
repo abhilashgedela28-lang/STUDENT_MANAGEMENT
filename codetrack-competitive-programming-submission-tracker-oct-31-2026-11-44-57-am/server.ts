@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import { apiRouter } from './src/server/api.js';
@@ -37,9 +38,18 @@ async function createServer() {
   } else {
     // In production, serve built static files from dist
     const distPath = path.resolve(__dirname, 'dist');
+    const indexPath = path.resolve(distPath, 'index.html');
+
+    if (!fs.existsSync(indexPath)) {
+      console.warn('[CodeTrack Server] Production build missing: dist/index.html not found. Run npm run build before deploy.');
+    }
+
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
+      if (!fs.existsSync(indexPath)) {
+        return res.status(500).send('Frontend build missing. Run "npm run build" before deployment.');
+      }
+      res.sendFile(indexPath);
     });
   }
 
