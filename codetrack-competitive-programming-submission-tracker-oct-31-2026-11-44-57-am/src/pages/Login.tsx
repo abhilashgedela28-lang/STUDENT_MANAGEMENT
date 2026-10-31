@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.js';
-import { Terminal, Shield, LogIn, AlertCircle } from 'lucide-react';
+import { Terminal, LogIn, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
   onNavigate: (tab: string) => void;
@@ -12,16 +12,6 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [adminEmail, setAdminEmail] = useState('24pa1a4501@vishnu.edu.in');
-
-  React.useEffect(() => {
-    fetch('/api/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data.adminEmail) setAdminEmail(data.adminEmail);
-      })
-      .catch(() => {});
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,11 +27,6 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAdminDemo = () => {
-    setEmail(adminEmail);
-    setPassword('Admin@123');
   };
 
   return (
@@ -98,18 +83,6 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
             <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
           </button>
         </form>
-
-        {/* Demo Admin Quick Button */}
-        <div className="pt-4 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={handleAdminDemo}
-            className="w-full py-2 px-3 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Shield className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Fill Admin Credentials ({adminEmail})</span>
-          </button>
-        </div>
 
         <div className="text-center text-xs text-slate-500">
           Don't have an account?{' '}

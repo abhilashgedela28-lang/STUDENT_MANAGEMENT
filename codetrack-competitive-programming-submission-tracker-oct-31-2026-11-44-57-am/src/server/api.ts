@@ -17,9 +17,7 @@ apiRouter.get('/actuator/health', (_req, res) => {
 
 // --- Public System Config ---
 apiRouter.get('/config', (_req, res) => {
-  res.json({
-    adminEmail: process.env.ADMIN_EMAIL || '24pa1a4501@vishnu.edu.in'
-  });
+  res.json({});
 });
 
 // --- Authentication Endpoints ---

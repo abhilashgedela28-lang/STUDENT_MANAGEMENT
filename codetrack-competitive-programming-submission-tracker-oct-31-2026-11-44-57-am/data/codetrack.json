@@ -1,14 +1,6 @@
 {
   "users": [
     {
-      "id": "user_admin_agxnt4b",
-      "name": "System Admin",
-      "email": "admin@codetrack.dev",
-      "passwordHash": "$2b$10$MwsDP5GXA.SC/kfrSEZHIOdw6KbOT3/AALDZ5R98xt44YwLO6bt/K",
-      "role": "ADMIN",
-      "createdAt": "2026-10-31T05:32:23.267Z"
-    },
-    {
       "id": "usr_22u9o1y",
       "name": "John Doe",
       "email": "john@example.com",
@@ -28,9 +20,25 @@
       "id": "user_admin_6j87252",
       "name": "Abhilash Gedela (Admin)",
       "email": "24pa1a4501@vishnu.edu.in",
-      "passwordHash": "$2b$10$sDb7WQ/T.l8SV.xCEC5YpOq1vrDe6GsRm5XAYpCaq1fUxE8YlfRme",
+      "passwordHash": "$2b$10$4FGD./IFyrM9G1sSJSSOe.D4svsWBydWHcwIKj9fTrLV10Y9y5Hsu",
       "role": "ADMIN",
       "createdAt": "2026-10-31T06:11:20.387Z"
+    },
+    {
+      "id": "user_admin_ybmslxu",
+      "name": "Abhilash Gedela",
+      "email": "abhilashgedela28@gmail.com",
+      "passwordHash": "$2b$10$4FGD./IFyrM9G1sSJSSOe.D4svsWBydWHcwIKj9fTrLV10Y9y5Hsu",
+      "role": "ADMIN",
+      "createdAt": "2026-10-31T06:50:37.127Z"
+    },
+    {
+      "id": "usr_y72vl9g",
+      "name": "abhilash",
+      "email": "gabhilashji123@gmail.com",
+      "passwordHash": "$2b$10$QS1YoleRx4fPFK7ETknuN.UX1j7hI7O3kIVPuqabkbQSANU/9ng3C",
+      "role": "USER",
+      "createdAt": "2026-10-31T06:59:09.094Z"
     }
   ],
   "platformLinks": [
@@ -375,6 +383,22 @@
       "createdBy": "user_admin_agxnt4b",
       "id": "prob_p2bsb20",
       "createdAt": "2026-10-31T05:35:31.011Z"
+    },
+    {
+      "platform": "LEETCODE",
+      "externalId": "twisted-mirror-path-count",
+      "title": "Twisted Mirror Path Count",
+      "url": "https://leetcode.com/problems/twisted-mirror-path-count/description/?envType=daily-question&envId=2026-10-31",
+      "difficulty": "Medium",
+      "topics": [
+        "Array",
+        "Dynamic Programming",
+        "Matrix"
+      ],
+      "active": true,
+      "createdBy": "user_admin_6j87252",
+      "id": "prob_0dcd4ut",
+      "createdAt": "2026-10-31T06:52:31.837Z"
     }
   ],
   "userProblemStatus": [
