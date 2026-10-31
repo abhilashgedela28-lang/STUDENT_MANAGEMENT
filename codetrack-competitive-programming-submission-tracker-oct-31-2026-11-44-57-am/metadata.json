@@ -1,0 +1,6 @@
+{
+  "name": "CodeTrack - Competitive Programming & Submission Tracker",
+  "description": "Track LeetCode and Codeforces progress, verify account ownership, sync accepted submissions dynamically, and analyze contest rating and problem-solving analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
