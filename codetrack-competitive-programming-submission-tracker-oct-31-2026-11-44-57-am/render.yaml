@@ -10,3 +10,9 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: CODETRACK_DATA_DIR
+        value: /data
+    disk:
+      name: codetrack-data
+      mountPath: /data
+      sizeGB: 1

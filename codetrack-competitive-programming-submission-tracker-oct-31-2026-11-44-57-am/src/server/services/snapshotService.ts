@@ -5,7 +5,7 @@ import { codeforcesConnector } from '../connectors/codeforces.js';
 
 export class SnapshotService {
   public async recordSnapshotForUserPlatform(userId: string, platform: Platform) {
-    const link = db.getLink(userId, platform);
+    const link = await db.getLink(userId, platform);
     if (!link || !link.verified) return;
 
     try {
@@ -15,7 +15,7 @@ export class SnapshotService {
           ? await leetcodeConnector.fetchStats(link.username)
           : await codeforcesConnector.fetchStats(link.username);
 
-      db.saveSnapshot({
+      await db.saveSnapshot({
         userId,
         platform,
         snapshotDate: today,
@@ -94,12 +94,12 @@ export class SnapshotService {
   }
 
   public async runSnapshotsForAllVerifiedUsers(): Promise<{ processedUsers: number; errors: number }> {
-    const users = db.getAllUsers();
+    const users = await db.getAllUsers();
     let processed = 0;
     let errors = 0;
 
     for (const u of users) {
-      const links = db.getLinksForUser(u.id).filter(l => l.verified);
+      const links = (await db.getLinksForUser(u.id)).filter(l => l.verified);
       for (const link of links) {
         try {
           await this.recordSnapshotForUserPlatform(u.id, link.platform);

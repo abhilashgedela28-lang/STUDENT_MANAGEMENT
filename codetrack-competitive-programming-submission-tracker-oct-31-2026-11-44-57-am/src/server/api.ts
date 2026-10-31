@@ -1,4 +1,4 @@
-import express, { Router, Response } from 'express';
+import { Router, Response } from 'express';
 import { db } from './db.js';
 import { AuthService, requireAuth, requireAdmin, sanitizeUser, AuthenticatedRequest } from './services/auth.js';
 import { VerificationService } from './services/verification.js';
@@ -21,7 +21,7 @@ apiRouter.get('/config', (_req, res) => {
 });
 
 // --- Authentication Endpoints ---
-apiRouter.post('/auth/signup', (req, res) => {
+apiRouter.post('/auth/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
@@ -34,7 +34,7 @@ apiRouter.post('/auth/signup', (req, res) => {
     }
 
     const passwordHash = AuthService.hashPassword(password);
-    const user = db.createUser(name.trim(), email.trim(), passwordHash, 'USER');
+    const user = await db.createUser(name.trim(), email.trim(), passwordHash, 'USER');
     const token = AuthService.createSession(user.id);
 
     const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
@@ -52,7 +52,7 @@ apiRouter.post('/auth/signup', (req, res) => {
   }
 });
 
-apiRouter.post('/auth/login', (req, res) => {
+apiRouter.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -60,7 +60,7 @@ apiRouter.post('/auth/login', (req, res) => {
       return;
     }
 
-    const user = db.findUserByEmail(email.trim());
+    const user = await db.findUserByEmail(email.trim());
     if (!user || !AuthService.comparePassword(password, user.passwordHash, user.email)) {
       res.status(401).json({ error: 'Invalid email or password.' });
       return;
@@ -89,18 +89,18 @@ apiRouter.post('/auth/logout', (req: AuthenticatedRequest, res) => {
   res.json({ message: 'Logged out successfully.' });
 });
 
-apiRouter.get('/auth/me', (req: AuthenticatedRequest, res) => {
+apiRouter.get('/auth/me', async (req: AuthenticatedRequest, res) => {
   if (!req.user) {
     res.json({ user: null });
     return;
   }
-  const links = db.getLinksForUser(req.user.id);
+  const links = await db.getLinksForUser(req.user.id);
   res.json({ user: sanitizeUser(req.user), links });
 });
 
 // --- Platform Linking & Verification ---
-apiRouter.get('/platforms', requireAuth, (req: AuthenticatedRequest, res) => {
-  const links = db.getLinksForUser(req.user!.id);
+apiRouter.get('/platforms', requireAuth, async (req: AuthenticatedRequest, res) => {
+  const links = await db.getLinksForUser(req.user!.id);
   res.json({ links });
 });
 
@@ -144,19 +144,20 @@ apiRouter.post('/platforms/verify', requireAuth, async (req: AuthenticatedReques
   }
 });
 
-apiRouter.delete('/platforms/:platform', requireAuth, (req: AuthenticatedRequest, res) => {
-  const platform = req.params.platform.toUpperCase() as Platform;
-  VerificationService.unlinkAccount(req.user!.id, platform);
+apiRouter.delete('/platforms/:platform', requireAuth, async (req: AuthenticatedRequest, res) => {
+  const platformParam = String(req.params.platform || '').toUpperCase();
+  const platform = platformParam as Platform;
+  await VerificationService.unlinkAccount(req.user!.id, platform);
   res.json({ message: `Unlinked ${platform} account.` });
 });
 
 // --- Practice Section ---
-apiRouter.get('/practice/problems', requireAuth, (req: AuthenticatedRequest, res) => {
+apiRouter.get('/practice/problems', requireAuth, async (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
   const { platform, difficulty, topic, status, search, page = '1', limit = '20' } = req.query;
 
-  let problems = db.getAllProblems().filter(p => p.active);
-  const userStatuses = db.getUserProblemStatuses(userId);
+  let problems = (await db.getAllProblems()).filter(p => p.active);
+  const userStatuses = await db.getUserProblemStatuses(userId);
   const statusMap = new Map(userStatuses.map(s => [s.problemId, s]));
 
   // Platform filter
@@ -211,7 +212,7 @@ apiRouter.get('/practice/problems', requireAuth, (req: AuthenticatedRequest, res
 
   // Extract all unique topics for filter dropdown
   const allTopicsSet = new Set<string>();
-  for (const prob of db.getAllProblems()) {
+  for (const prob of await db.getAllProblems()) {
     prob.topics.forEach(t => allTopicsSet.add(t));
   }
 
@@ -227,21 +228,22 @@ apiRouter.get('/practice/problems', requireAuth, (req: AuthenticatedRequest, res
   });
 });
 
-apiRouter.post('/practice/solve/:id', requireAuth, (req: AuthenticatedRequest, res) => {
-  const problem = db.findProblemById(req.params.id);
+apiRouter.post('/practice/solve/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
+  const problemId = String(req.params.id || '');
+  const problem = await db.findProblemById(problemId);
   if (!problem) {
     res.status(404).json({ error: 'Problem not found' });
     return;
   }
 
-  const status = db.markStarted(req.user!.id, problem.id);
+  const status = await db.markStarted(req.user!.id, problem.id);
   res.json({ message: 'Problem marked as started.', status, url: problem.url });
 });
 
-apiRouter.get('/practice/cooldown', requireAuth, (req: AuthenticatedRequest, res) => {
-  const remaining = syncService.getRemainingCooldown(req.user!.id);
+apiRouter.get('/practice/cooldown', requireAuth, async (req: AuthenticatedRequest, res) => {
+  const remaining = await syncService.getRemainingCooldown(req.user!.id);
   const today = new Date().toISOString().split('T')[0];
-  const dailyCount = db.getDailySyncCount(req.user!.id, today);
+  const dailyCount = await db.getDailySyncCount(req.user!.id, today);
   res.json({
     remainingSeconds: remaining,
     dailyCount,
@@ -267,7 +269,7 @@ apiRouter.post('/practice/sync', requireAuth, async (req: AuthenticatedRequest, 
 // --- Dashboard & Analytics ---
 apiRouter.get('/dashboard', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
-  const links = db.getLinksForUser(userId);
+  const links = await db.getLinksForUser(userId);
   const verifiedLinks = links.filter(l => l.verified);
 
   if (verifiedLinks.length === 0) {
@@ -280,12 +282,12 @@ apiRouter.get('/dashboard', requireAuth, async (req: AuthenticatedRequest, res: 
   }
 
   // Aggregate user problem solving status
-  const userStatuses = db.getUserProblemStatuses(userId);
+  const userStatuses = await db.getUserProblemStatuses(userId);
   const solvedProblemIds = new Set(
     userStatuses.filter(s => s.status === 'SOLVED').map(s => s.problemId)
   );
 
-  const allProblems = db.getAllProblems();
+  const allProblems = await db.getAllProblems();
   let solvedEasy = 0;
   let solvedMed = 0;
   let solvedHard = 0;
@@ -298,14 +300,10 @@ apiRouter.get('/dashboard', requireAuth, async (req: AuthenticatedRequest, res: 
     }
   }
 
-  // Get historical snapshots
-  const snapshots = db.getSnapshots(userId);
-
-  // Collect activity dates for heatmap & streaks
+  const snapshots = await db.getSnapshots(userId);
   const activityDates: string[] = [];
   const calendarHeatmap: Record<string, number> = {};
 
-  // Gather live stats if available or from snapshots
   const platformStatsList = [];
   for (const link of verifiedLinks) {
     try {
@@ -322,7 +320,6 @@ apiRouter.get('/dashboard', requireAuth, async (req: AuthenticatedRequest, res: 
         stats
       });
 
-      // Merge calendar heatmap
       if (stats.submissionCalendar) {
         for (const [secStr, count] of Object.entries(stats.submissionCalendar)) {
           const dStr = new Date(Number(secStr) * 1000).toISOString().split('T')[0];
@@ -331,7 +328,6 @@ apiRouter.get('/dashboard', requireAuth, async (req: AuthenticatedRequest, res: 
         }
       }
     } catch (e) {
-      // Fall back to snapshot info
       const latestSnap = [...snapshots].reverse().find(s => s.platform === link.platform);
       platformStatsList.push({
         platform: link.platform,
@@ -348,7 +344,6 @@ apiRouter.get('/dashboard', requireAuth, async (req: AuthenticatedRequest, res: 
     }
   }
 
-  // Add practice solved dates to activity
   for (const s of userStatuses) {
     if (s.solvedAt) {
       const d = s.solvedAt.split('T')[0];
@@ -376,7 +371,6 @@ apiRouter.get('/dashboard', requireAuth, async (req: AuthenticatedRequest, res: 
   });
 });
 
-// --- Admin Panel Endpoints ---
 apiRouter.post('/admin/problems/preview', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { url } = req.body;
@@ -399,7 +393,6 @@ apiRouter.post('/admin/problems/preview', requireAdmin, async (req: Authenticate
       externalId = match[1];
     } else if (trimmed.includes('codeforces.com')) {
       platform = 'CODEFORCES';
-      // Match /problemset/problem/<id>/<idx> or /contest/<id>/problem/<idx>
       const match1 = trimmed.match(/\/problemset\/problem\/(\d+)\/([a-zA-Z0-9]+)/);
       const match2 = trimmed.match(/\/contest\/(\d+)\/problem\/([a-zA-Z0-9]+)/);
       const match = match1 || match2;
@@ -413,14 +406,12 @@ apiRouter.post('/admin/problems/preview', requireAdmin, async (req: Authenticate
       return;
     }
 
-    // Check if already exists in DB
-    const existing = db.findProblemByExternalId(platform, externalId);
+    const existing = await db.findProblemByExternalId(platform, externalId);
     if (existing) {
       res.status(400).json({ error: `Problem already exists in CodeTrack (${platform}: ${existing.title})` });
       return;
     }
 
-    // Auto-fetch details
     let title = externalId;
     let difficulty: 'Easy' | 'Medium' | 'Hard' = 'Medium';
     let topics: string[] = [];
@@ -442,7 +433,7 @@ apiRouter.post('/admin/problems/preview', requireAdmin, async (req: Authenticate
         }
       }
     } catch {
-      // Allow fallback if platform fetch had issue
+      // fallback
     }
 
     res.json({
@@ -459,7 +450,7 @@ apiRouter.post('/admin/problems/preview', requireAdmin, async (req: Authenticate
   }
 });
 
-apiRouter.post('/admin/problems', requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+apiRouter.post('/admin/problems', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { platform, externalId, title, url, difficulty, topics, active = true } = req.body;
     if (!platform || !externalId || !title || !url || !difficulty) {
@@ -467,7 +458,7 @@ apiRouter.post('/admin/problems', requireAdmin, (req: AuthenticatedRequest, res:
       return;
     }
 
-    const problem = db.addProblem({
+    const problem = await db.addProblem({
       platform,
       externalId,
       title: title.trim(),
@@ -520,7 +511,7 @@ apiRouter.post('/admin/problems/bulk', requireAdmin, async (req: AuthenticatedRe
       continue;
     }
 
-    if (db.findProblemByExternalId(platform, externalId)) {
+    if (await db.findProblemByExternalId(platform, externalId)) {
       duplicates.push(trimmed);
       continue;
     }
@@ -546,7 +537,7 @@ apiRouter.post('/admin/problems/bulk', requireAdmin, async (req: AuthenticatedRe
         }
       }
 
-      const problem = db.addProblem({
+      const problem = await db.addProblem({
         platform,
         externalId,
         title,
@@ -576,10 +567,11 @@ apiRouter.post('/admin/problems/bulk', requireAdmin, async (req: AuthenticatedRe
   });
 });
 
-apiRouter.put('/admin/problems/:id', requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+apiRouter.put('/admin/problems/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { title, difficulty, topics, active, url } = req.body;
-    const updated = db.updateProblem(req.params.id, {
+    const problemId = String(req.params.id || '');
+    const updated = await db.updateProblem(problemId, {
       title,
       difficulty,
       topics,
@@ -593,14 +585,15 @@ apiRouter.put('/admin/problems/:id', requireAdmin, (req: AuthenticatedRequest, r
   }
 });
 
-apiRouter.patch('/admin/problems/:id/toggle', requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+apiRouter.patch('/admin/problems/:id/toggle', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const problem = db.findProblemById(req.params.id);
+    const problemId = String(req.params.id || '');
+    const problem = await db.findProblemById(problemId);
     if (!problem) {
       res.status(404).json({ error: 'Problem not found' });
       return;
     }
-    const updated = db.updateProblem(problem.id, { active: !problem.active });
+    const updated = await db.updateProblem(problem.id, { active: !problem.active });
     res.json({ problem: updated, message: `Problem is now ${updated.active ? 'active' : 'inactive'}.` });
   } catch (err: unknown) {
     const error = err as Error;
@@ -608,15 +601,16 @@ apiRouter.patch('/admin/problems/:id/toggle', requireAdmin, (req: AuthenticatedR
   }
 });
 
-apiRouter.delete('/admin/problems/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
-  db.deleteProblem(req.params.id);
+apiRouter.delete('/admin/problems/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  await db.deleteProblem(String(req.params.id || ''));
   res.json({ message: 'Problem deleted successfully.' });
 });
 
-apiRouter.get('/admin/users', requireAdmin, (_req: AuthenticatedRequest, res) => {
-  const users = db.getAllUsers().map(u => {
-    const links = db.getLinksForUser(u.id);
-    const statuses = db.getUserProblemStatuses(u.id);
+apiRouter.get('/admin/users', requireAdmin, async (_req: AuthenticatedRequest, res) => {
+  const usersList = await db.getAllUsers();
+  const users = await Promise.all(usersList.map(async u => {
+    const links = await db.getLinksForUser(u.id);
+    const statuses = await db.getUserProblemStatuses(u.id);
     const solvedCount = statuses.filter(s => s.status === 'SOLVED').length;
     return {
       id: u.id,
@@ -632,7 +626,7 @@ apiRouter.get('/admin/users', requireAdmin, (_req: AuthenticatedRequest, res) =>
       })),
       solvedCount
     };
-  });
+  }));
 
   res.json({ users });
 });

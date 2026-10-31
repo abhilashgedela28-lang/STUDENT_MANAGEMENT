@@ -21,13 +21,11 @@ export class VerificationService {
       throw new Error('Username is required.');
     }
 
-    // 1. Check if another user has already verified this exact username
-    const verifiedByOther = db.findVerifiedLinkByUsername(platform, cleanUsername);
+    const verifiedByOther = await db.findVerifiedLinkByUsername(platform, cleanUsername);
     if (verifiedByOther && verifiedByOther.userId !== userId) {
       throw new Error(`The ${platform} account '${cleanUsername}' has already been verified by another user.`);
     }
 
-    // 2. Validate that the account exists on the platform
     const connector = platform === 'LEETCODE' ? leetcodeConnector : codeforcesConnector;
     let exists = false;
     try {
@@ -41,7 +39,6 @@ export class VerificationService {
       throw new Error(`The ${platform} user '${cleanUsername}' was not found. Please verify the handle/username.`);
     }
 
-    // 3. Generate verification code with 30 min expiration
     const code = this.generateCode();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -55,7 +52,7 @@ export class VerificationService {
       verified: false
     };
 
-    db.saveLink(link);
+    await db.saveLink(link);
     return link;
   }
 
@@ -64,7 +61,7 @@ export class VerificationService {
     platform: Platform,
     simulateVerification = false
   ): Promise<{ verified: boolean; message: string; link: PlatformLink }> {
-    const link = db.getLink(userId, platform);
+    const link = await db.getLink(userId, platform);
     if (!link) {
       throw new Error(`No ${platform} link found for this user. Please start by adding your username.`);
     }
@@ -81,13 +78,11 @@ export class VerificationService {
       throw new Error('Verification code has expired (30-minute limit). Please generate a new code.');
     }
 
-    // Check if another user verified this handle while this request was pending
-    const verifiedByOther = db.findVerifiedLinkByUsername(platform, link.username);
+    const verifiedByOther = await db.findVerifiedLinkByUsername(platform, link.username);
     if (verifiedByOther && verifiedByOther.userId !== userId) {
       throw new Error(`The ${platform} account '${link.username}' has already been claimed and verified by another user.`);
     }
 
-    // Fetch public profile and look for the code
     const connector = platform === 'LEETCODE' ? leetcodeConnector : codeforcesConnector;
     const profile = await connector.fetchProfile(link.username);
 
@@ -108,12 +103,10 @@ export class VerificationService {
       };
     }
 
-    // Successfully verified!
     link.verified = true;
     link.verifiedAt = new Date().toISOString();
-    db.saveLink(link);
+    await db.saveLink(link);
 
-    // Take initial snapshot and backfill Codeforces history if applicable
     try {
       await snapshotService.recordSnapshotForUserPlatform(userId, platform);
       if (platform === 'CODEFORCES') {
@@ -130,7 +123,7 @@ export class VerificationService {
     };
   }
 
-  public static unlinkAccount(userId: string, platform: Platform): void {
-    db.removeLink(userId, platform);
+  public static async unlinkAccount(userId: string, platform: Platform): Promise<void> {
+    await db.removeLink(userId, platform);
   }
 }

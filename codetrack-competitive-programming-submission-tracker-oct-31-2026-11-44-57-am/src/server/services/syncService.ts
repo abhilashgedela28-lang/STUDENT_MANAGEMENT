@@ -41,23 +41,6 @@ export class SyncService {
     }
   }
 
-  public getRemainingCooldown(userId: string): number {
-    const links = db.getLinksForUser(userId);
-    let latestSync = 0;
-    for (const link of links) {
-      if (link.lastSyncedAt) {
-        const time = new Date(link.lastSyncedAt).getTime();
-        if (time > latestSync) latestSync = time;
-      }
-    }
-    const elapsed = Date.now() - latestSync;
-    const cooldownMs = 45 * 1000;
-    if (elapsed < cooldownMs) {
-      return Math.ceil((cooldownMs - elapsed) / 1000);
-    }
-    return 0;
-  }
-
   public async syncUserSubmissions(userId: string, targetProblemId?: string): Promise<{
     success: boolean;
     totalChecked: number;
@@ -71,7 +54,7 @@ export class SyncService {
     }
 
     // 2. Cooldown check (45 seconds)
-    const remainingSeconds = this.getRemainingCooldown(userId);
+    const remainingSeconds = await this.getRemainingCooldown(userId);
     if (remainingSeconds > 0) {
       const err: any = new Error(`Rate limit cooldown: Please wait ${remainingSeconds}s before syncing again.`);
       err.status = 429;
@@ -81,7 +64,7 @@ export class SyncService {
 
     // 3. Daily quota check (50 syncs / day)
     const today = new Date().toISOString().split('T')[0];
-    const dailyCount = db.getDailySyncCount(userId, today);
+    const dailyCount = await db.getDailySyncCount(userId, today);
     if (dailyCount >= 50) {
       const err: any = new Error('Daily sync quota reached (50 syncs per day). Quota resets tomorrow.');
       err.status = 429;
@@ -90,7 +73,7 @@ export class SyncService {
     }
 
     // Check if user has any verified links
-    const userLinks = db.getLinksForUser(userId).filter(l => l.verified);
+    const userLinks = (await db.getLinksForUser(userId)).filter(l => l.verified);
     if (userLinks.length === 0) {
       throw new Error('You do not have any verified platform accounts. Please link and verify your LeetCode or Codeforces account in your Profile first.');
     }
@@ -104,7 +87,7 @@ export class SyncService {
       let totalCheckedCount = 0;
 
       // Get all active problems
-      let problemsToCheck = db.getAllProblems().filter(p => p.active);
+      let problemsToCheck = (await db.getAllProblems()).filter(p => p.active);
       if (targetProblemId) {
         problemsToCheck = problemsToCheck.filter(p => p.id === targetProblemId);
       }
@@ -151,7 +134,7 @@ export class SyncService {
         // Check each problem against the submission list
         for (const prob of platformProblems) {
           totalCheckedCount++;
-          const currentStatus = db.getProblemStatus(userId, prob.id);
+          const currentStatus = await db.getProblemStatus(userId, prob.id);
           if (currentStatus?.status === 'SOLVED') {
             // Already solved
             continue;
@@ -160,21 +143,21 @@ export class SyncService {
           const match = submissionMap.get(prob.externalId.toLowerCase());
           if (match) {
             const solvedTime = new Date(match.timestamp * 1000).toISOString();
-            db.markSolved(userId, prob.id, solvedTime);
+            await db.markSolved(userId, prob.id, solvedTime);
             newlySolvedTitles.push(prob.title);
           }
         }
 
         // Update lastSyncedAt on link
         link.lastSyncedAt = nowIso;
-        db.saveLink(link);
+        await db.saveLink(link);
       }
 
       // Record daily counter
-      db.incrementDailySyncCount(userId, today);
+      await db.incrementDailySyncCount(userId, today);
 
       // Log sync outcome
-      db.addSyncLog({
+      await db.addSyncLog({
         userId,
         requestedAt: nowIso,
         result: {
@@ -207,6 +190,23 @@ export class SyncService {
     } finally {
       this.activeSyncLocks.delete(userId);
     }
+  }
+
+  public async getRemainingCooldown(userId: string): Promise<number> {
+    const links = await db.getLinksForUser(userId);
+    let latestSync = 0;
+    for (const link of links) {
+      if (link.lastSyncedAt) {
+        const time = new Date(link.lastSyncedAt).getTime();
+        if (time > latestSync) latestSync = time;
+      }
+    }
+    const elapsed = Date.now() - latestSync;
+    const cooldownMs = 45 * 1000;
+    if (elapsed < cooldownMs) {
+      return Math.ceil((cooldownMs - elapsed) / 1000);
+    }
+    return 0;
   }
 }
 

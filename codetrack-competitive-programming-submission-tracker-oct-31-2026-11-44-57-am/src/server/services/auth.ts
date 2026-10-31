@@ -66,7 +66,7 @@ export class AuthService {
     return token;
   }
 
-  public static getSessionUser(token: string): User | null {
+  public static async getSessionUser(token: string): Promise<User | null> {
     const session = sessions[token];
     if (!session) return null;
     if (Date.now() > session.expiresAt) {
@@ -74,7 +74,7 @@ export class AuthService {
       saveSessions();
       return null;
     }
-    const user = db.findUserById(session.userId);
+    const user = await db.findUserById(session.userId);
     return user || null;
   }
 
@@ -84,10 +84,10 @@ export class AuthService {
   }
 }
 
-export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const token = req.cookies?.codetrack_session || req.headers.authorization?.replace('Bearer ', '');
   if (token) {
-    const user = AuthService.getSessionUser(token);
+    const user = await AuthService.getSessionUser(token);
     if (user) {
       req.user = user;
     }
