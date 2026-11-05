@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Optional local MongoDB container if not using MongoDB Atlas
+  mongodb:
+    image: mongo:7.0
+    container_name: codetrack-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: codetrack
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Full-Stack CodeTrack Application (Node.js + Express + React built assets)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codetrack-app
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      MONGODB_URI: ${MONGODB_URI:-mongodb://admin:password123@mongodb:27017/codetrack?authSource=admin}
+      JWT_SECRET: ${JWT_SECRET:-codetrack_super_secret_jwt_key_2026}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@codetrack.dev}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123456}
+      NODE_ENV: production
+      SYNC_COOLDOWN_SECONDS: 45
+      SYNC_DAILY_CAP: 50
+      SNAPSHOT_CRON: "0 2 * * *"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+volumes:
+  mongo-data:

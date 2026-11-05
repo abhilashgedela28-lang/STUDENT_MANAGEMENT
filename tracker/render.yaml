@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: codetrack
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@codetrack.dev
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SYNC_COOLDOWN_SECONDS
+        value: 45
+      - key: SYNC_DAILY_CAP
+        value: 50
+      - key: SNAPSHOT_CRON
+        value: "0 2 * * *"
+      - key: ALLOW_TEST_VERIFY
+        value: "false"
+
